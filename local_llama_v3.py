@@ -202,11 +202,6 @@ def update_expander():
         with st.expander(f"Uploaded Files ({n})", expanded=False):
             uploaded_files = st.empty()
             uploaded_files.markdown(st.session_state.uploaded_files, unsafe_allow_html=True)
-        st.info(
-            """This application stores uploaded files in the 'uploads' directory
-                upon upload and then indexes them into a locally persisted Chroma Document Store 
-                so that you may re-use your documentation as necessary."""
-        )
 
 
 # main function
@@ -225,6 +220,11 @@ if __name__ == "__main__":
     uploaded_files = None
     expander_placeholder = None
 
+    _clear_files_help = (
+        "This application stores uploaded files in the 'uploads' directory "
+        "upon upload it indexes them into a locally persisted Chroma Document Store "
+        "so that you may release the memory of the files."
+    )
     with st.sidebar:
         clear_button = st.button("Clear Conversation", key="clear", on_click=clear_convo)
         st.button(
@@ -232,6 +232,7 @@ if __name__ == "__main__":
             key="clear_data",
             on_click=clear_uploads_and_chroma,
             type="secondary",
+            help=_clear_files_help,
         )
         # Create a placeholder for the expander
         expander_placeholder = st.empty()
