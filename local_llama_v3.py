@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 
 import streamlit as st
@@ -35,18 +36,14 @@ def get_context(query):
 
     query_pipeline = Pipeline()
     query_pipeline.add_component("text_embedder", OllamaTextEmbedder())
-    query_pipeline.add_component(
-        "retriever", ChromaEmbeddingRetriever(document_store=document_store, top_k=3)
-    )
+    query_pipeline.add_component("retriever", ChromaEmbeddingRetriever(document_store=document_store, top_k=3))
 
     query_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
     result = query_pipeline.run({"text_embedder": {"text": query}})
     context = [doc.content for doc in result["retriever"]["documents"]]
     sources = [doc.meta["page_number"] for doc in result["retriever"]["documents"]]
     files = [doc.meta["file_path"] for doc in result["retriever"]["documents"]]
-    final_context = [
-        f"Context: {c} (Page: {s}, File: {f})" for c, s, f in zip(context, sources, files)
-    ]
+    final_context = [f"Context: {c} (Page: {s}, File: {f})" for c, s, f in zip(context, sources, files)]
     # Uncomment for debug st.write(final_context)
     return final_context
 
@@ -157,6 +154,24 @@ def clear_convo():
     st.session_state["messages"].clear()
 
 
+def clear_uploads_and_chroma():
+    """Clear uploads folder and Chroma collection content (keeps vec-index dir)."""
+    # Clear Chroma collection via API (do not delete vec-index directory)
+    doc_store = get_doc_store()
+    docs = doc_store.filter_documents(
+        filters={"field": "source", "operator": "==", "value": "upload"},
+    )
+    if docs:
+        ids = [doc.id for doc in docs]
+        doc_store.delete_documents(ids=ids)
+
+    # Remove uploaded files
+    uploads = Path("uploads")
+    if uploads.exists():
+        shutil.rmtree(uploads)
+    st.session_state["needs_rerun"] = True
+
+
 # init function is designed to initialize the Streamlit app and set the page configuration
 def init():
     st.set_page_config(page_title="Local Llama", page_icon=":robot_face: ")
@@ -173,9 +188,7 @@ def init():
 
 def get_uploaded_files():
     if uploaded_files := sorted(Path("uploads").iterdir(), key=lambda x: x.name.lower()):
-        uploaded_files = "<br>".join(
-            f"**{i}.** {f.name}" for i, f in enumerate(uploaded_files, start=1)
-        )
+        uploaded_files = "<br>".join(f"**{i}.** {f.name}" for i, f in enumerate(uploaded_files, start=1))
     else:
         uploaded_files = "No files uploaded."
     st.session_state.uploaded_files = uploaded_files
@@ -199,6 +212,9 @@ def update_expander():
 # main function
 if __name__ == "__main__":
     init()
+    if st.session_state.get("needs_rerun"):
+        del st.session_state["needs_rerun"]
+        st.rerun()
     file = st.file_uploader(
         "Choose a file to index...",
         type=["docx", "pdf", "txt", "md"],
@@ -211,6 +227,12 @@ if __name__ == "__main__":
 
     with st.sidebar:
         clear_button = st.button("Clear Conversation", key="clear", on_click=clear_convo)
+        st.button(
+            "Clear Indexed Files",
+            key="clear_data",
+            on_click=clear_uploads_and_chroma,
+            type="secondary",
+        )
         # Create a placeholder for the expander
         expander_placeholder = st.empty()
         update_expander()
