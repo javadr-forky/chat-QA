@@ -182,6 +182,8 @@ def init():
     # Initialize session state for file list
     if "uploaded_files" not in st.session_state:
         st.session_state["uploaded_files"] = []
+    if "file_uploader_key" not in st.session_state:
+        st.session_state["file_uploader_key"] = 0
 
     Path("uploads").mkdir(exist_ok=True, parents=True)
 
@@ -210,10 +212,16 @@ if __name__ == "__main__":
     if st.session_state.get("needs_rerun"):
         del st.session_state["needs_rerun"]
         st.rerun()
+    # Show upload success toast from previous run (so it appears after rerun that clears file input)
+    if msg := st.session_state.pop("upload_toast_message", None):
+        if hasattr(st, "toast"):
+            st.toast(f"Indexed {msg}!", duration=5)
+        else:
+            st.success(f"Indexed {msg}!")
     file = st.file_uploader(
         "Choose a file to index...",
         type=["docx", "pdf", "txt", "md"],
-        key="file",
+        key=f"file_upload_{st.session_state['file_uploader_key']}",
     )
 
     # display on sidebar all files within uploads dir
@@ -242,8 +250,10 @@ if __name__ == "__main__":
     if file and clicked:
         with st.spinner("Please wait..."):
             indexing_pipe(file)
+        st.session_state["file_uploader_key"] += 1  # clear file uploader
+        st.session_state["upload_toast_message"] = file.name
         update_expander()
-        st.success(f"Indexed {file.name}!")  # Store message in session state
+        st.rerun()
 
     user_input = st.chat_input("Say something")
 
