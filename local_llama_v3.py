@@ -169,6 +169,7 @@ def clear_uploads_and_chroma():
     uploads = Path("uploads")
     if uploads.exists():
         shutil.rmtree(uploads)
+    st.session_state["clear_toast_message"] = True
     st.session_state["needs_rerun"] = True
 
 
@@ -218,6 +219,12 @@ if __name__ == "__main__":
             st.toast(f"Indexed {msg}!", duration=5)
         else:
             st.success(f"Indexed {msg}!")
+    # Show toast when Clear Indexed Files was pressed
+    if st.session_state.pop("clear_toast_message", None):
+        if hasattr(st, "toast"):
+            st.toast("Uploads and index cleared.", duration=5)
+        else:
+            st.success("Uploads and index cleared.")
     file = st.file_uploader(
         "Choose a file to index...",
         type=["docx", "pdf", "txt", "md"],
