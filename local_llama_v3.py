@@ -156,7 +156,9 @@ def clear_convo():
 
 def clear_uploads_and_chroma():
     """Clear uploads folder and Chroma collection content (keeps vec-index dir)."""
-    # Clear Chroma collection via API (do not delete vec-index directory)
+    uploads = Path("uploads")
+    if not uploads.exists() or not any(uploads.iterdir()):
+        return
     doc_store = get_doc_store()
     docs = doc_store.filter_documents(
         filters={"field": "source", "operator": "==", "value": "upload"},
@@ -165,8 +167,6 @@ def clear_uploads_and_chroma():
         ids = [doc.id for doc in docs]
         doc_store.delete_documents(ids=ids)
 
-    # Remove uploaded files
-    uploads = Path("uploads")
     if uploads.exists():
         shutil.rmtree(uploads)
     st.session_state["clear_toast_message"] = True
@@ -235,10 +235,9 @@ if __name__ == "__main__":
     uploaded_files = None
     expander_placeholder = None
 
-    _clear_files_help = (
-        "This application stores uploaded files in the 'uploads' directory "
-        "upon upload it indexes them into a locally persisted Chroma Document Store "
-        "so that you may release the memory of the files."
+    _page_help = (
+        "This app stores uploaded files in the **uploads** folder and indexes them "
+        "into a local Chroma document store so you can reuse your documents for Q&A."
     )
     with st.sidebar:
         clear_button = st.button("Clear Conversation", key="clear", on_click=clear_convo)
@@ -247,11 +246,11 @@ if __name__ == "__main__":
             key="clear_data",
             on_click=clear_uploads_and_chroma,
             type="secondary",
-            help=_clear_files_help,
         )
         # Create a placeholder for the expander
         expander_placeholder = st.empty()
         update_expander()
+        st.caption(_page_help)
 
     clicked = st.button("Upload File", key="Upload")
     if file and clicked:
